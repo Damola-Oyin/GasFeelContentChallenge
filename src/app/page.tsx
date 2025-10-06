@@ -9,6 +9,7 @@ export default function LeaderboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [highlightedContestant, setHighlightedContestant] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const highlightedRef = useRef<HTMLDivElement>(null);
   
   const { leaderboard, loading, error } = useLeaderboard();
@@ -16,7 +17,42 @@ export default function LeaderboardPage() {
   
   // Use SSE for real-time updates
   const { data: sseData, connected } = useSSE('/api/sse');
-  
+
+  // Calculate countdown to contest end (14 days from tomorrow)
+  useEffect(() => {
+    const calculateCountdown = () => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0); // Start of tomorrow
+      
+      const contestEnd = new Date(tomorrow);
+      contestEnd.setDate(tomorrow.getDate() + 14); // 14 days from tomorrow
+      contestEnd.setHours(23, 59, 59, 999); // End of day
+      
+      const timeDiff = contestEnd.getTime() - now.getTime();
+      
+      if (timeDiff > 0) {
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+        
+        setCountdown({ days, hours, minutes, seconds });
+      } else {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+      }
+    };
+
+    // Calculate immediately
+    calculateCountdown();
+    
+    // Update every second
+    const interval = setInterval(calculateCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   // Update leaderboard when SSE data arrives
   useEffect(() => {
     if (sseData?.type === 'leaderboard_update') {
@@ -137,22 +173,22 @@ export default function LeaderboardPage() {
         {/* Countdown Timer */}
         <div className="glass-card backdrop-blur-md bg-white/70 border border-white/90 shadow-lg p-3 sm:p-4 mb-6 sm:mb-8">
           <div className="flex flex-col sm:flex-row items-center justify-center gap-2 sm:gap-4">
-            <span className="text-charcoal font-medium text-sm sm:text-base">Ends in</span>
+            <span className="text-charcoal font-medium text-sm sm:text-base">Contest Ends In</span>
             <div className="flex gap-1 sm:gap-2">
               <div className="pill-button-secondary text-center min-w-[50px] sm:min-w-[60px]">
-                <div className="text-sm sm:text-lg font-bold text-charcoal">15</div>
+                <div className="text-sm sm:text-lg font-bold text-charcoal">{countdown.days.toString().padStart(2, '0')}</div>
                 <div className="text-xs text-gray-600">DAYS</div>
               </div>
               <div className="pill-button-secondary text-center min-w-[50px] sm:min-w-[60px]">
-                <div className="text-sm sm:text-lg font-bold text-charcoal">05</div>
+                <div className="text-sm sm:text-lg font-bold text-charcoal">{countdown.hours.toString().padStart(2, '0')}</div>
                 <div className="text-xs text-gray-600">HRS</div>
               </div>
               <div className="pill-button-secondary text-center min-w-[50px] sm:min-w-[60px]">
-                <div className="text-sm sm:text-lg font-bold text-charcoal">30</div>
+                <div className="text-sm sm:text-lg font-bold text-charcoal">{countdown.minutes.toString().padStart(2, '0')}</div>
                 <div className="text-xs text-gray-600">MIN</div>
               </div>
               <div className="pill-button-secondary text-center min-w-[50px] sm:min-w-[60px]">
-                <div className="text-sm sm:text-lg font-bold text-charcoal">15</div>
+                <div className="text-sm sm:text-lg font-bold text-charcoal">{countdown.seconds.toString().padStart(2, '0')}</div>
                 <div className="text-xs text-gray-600">SEC</div>
               </div>
             </div>
