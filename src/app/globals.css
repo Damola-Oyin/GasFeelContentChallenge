@@ -1,0 +1,48 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --cobalt: 6 72 212;
+    --snow: 247 250 252;
+    --tangerine: 250 131 52;
+    --golden: 255 197 22;
+    --lavender: 218 191 255;
+    --charcoal: 54 69 79;
+  }
+  
+  body {
+    @apply bg-gradient-to-br from-snow to-lavender/30;
+    font-family: 'Inter', sans-serif;
+    color: rgb(var(--charcoal));
+  }
+}
+
+@layer components {
+  .glass-card {
+    @apply backdrop-blur-md bg-white/60 border border-white/80 shadow-sm;
+  }
+  
+  .pill-button {
+    @apply rounded-full px-6 py-2.5 font-medium transition-all;
+  }
+  
+  .pill-button-primary {
+    @apply pill-button bg-golden text-charcoal hover:bg-golden/90;
+  }
+  
+  .pill-button-danger {
+    @apply pill-button bg-charcoal text-white border-2 border-tangerine hover:bg-charcoal/90;
+  }
+  
+  .pill-button-secondary {
+    @apply pill-button border-2 border-charcoal text-charcoal hover:bg-charcoal/5;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
