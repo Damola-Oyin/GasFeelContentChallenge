@@ -29,7 +29,7 @@ export async function GET() {
     }
 
     // Transform the data to match our expected format
-    const transformedSubmissions = submissions.map(submission => ({
+    const transformedSubmissions = submissions.map((submission: any) => ({
       id: submission.id,
       contestant_id: submission.contestant_id,
       submission_url: submission.submission_url,

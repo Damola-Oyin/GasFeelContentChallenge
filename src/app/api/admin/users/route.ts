@@ -17,18 +17,18 @@ async function checkAdminAuth(request: NextRequest) {
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('role, is_active')
-      .eq('email', user.email)
+      .eq('email', user.email! as any)
       .single();
 
     if (profileError || !profile) {
       return { error: 'User profile not found', status: 403 };
     }
 
-    if (!profile.is_active) {
+    if (!(profile as any).is_active) {
       return { error: 'Account is inactive', status: 403 };
     }
 
-    if (profile.role !== 'admin') {
+    if ((profile as any).role !== 'admin') {
       return { error: 'Admin access required', status: 403 };
     }
 
@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
         email: email.toLowerCase().trim(),
         role: role,
         is_active: true
-      })
+      } as any)
       .select()
       .single();
 
@@ -156,7 +156,7 @@ export async function PATCH(request: NextRequest) {
       .eq('id', userId)
       .single();
 
-    if (targetUser && targetUser.email === authResult.user?.email && role !== 'admin') {
+    if (targetUser && (targetUser as any).email === authResult.user?.email && role !== 'admin') {
       return NextResponse.json({ 
         error: 'You cannot demote yourself from admin role' 
       }, { status: 400 });
@@ -167,7 +167,7 @@ export async function PATCH(request: NextRequest) {
       .update({ 
         role: role,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', userId)
       .select()
       .single();
@@ -178,7 +178,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     // Log the action (for audit trail)
-    console.log(`Admin ${authResult.user?.email} updated user ${targetUser?.email} role to ${role}`);
+    console.log(`Admin ${authResult.user?.email} updated user ${(targetUser as any)?.email} role to ${role}`);
 
     return NextResponse.json(updatedUser);
   } catch (error) {

@@ -12,8 +12,8 @@ export async function POST() {
         status: 'final',
         freeze_public_display: false,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', (await supabase.from('contest').select('id').single()).data?.id);
+      } as any)
+      .eq('id', ((await supabase.from('contest').select('id').single()).data as any)?.id);
 
     if (error) {
       console.error('Error publishing final results:', error);

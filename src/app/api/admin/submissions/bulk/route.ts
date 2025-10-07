@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
         points_awarded: points,
         admin_notes: `Bulk ${action === 'approve' ? 'approved' : 'rejected'} by admin`,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .in('id', submissionIds);
 
     if (updateError) {
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
 
     // If approved, update contestant points for each approved submission
     if (action === 'approve' && points > 0) {
-      const contestantIds = [...new Set(submissions.map(s => s.contestant_id))];
+      const contestantIds = Array.from(new Set(submissions.map((s: any) => s.contestant_id)));
       
       for (const contestantId of contestantIds) {
         const { data: contestant, error: contestantError } = await supabase
@@ -62,11 +62,11 @@ export async function POST(request: NextRequest) {
           continue; // Skip this contestant but continue with others
         }
 
-        const newPoints = contestant.current_points + points;
+        const newPoints = (contestant as any).current_points + points;
         const newTimestamp = new Date().toISOString();
 
         const { error: transactionError } = await supabase.rpc('add_points_transaction', {
-          contestant_id_param: contestant.id,
+          contestant_id_param: (contestant as any).id,
           points_delta: points,
           source_param: 'ai_submission_bulk_approval',
           applied_by_user_id_param: 'admin', // In production, use actual admin user ID

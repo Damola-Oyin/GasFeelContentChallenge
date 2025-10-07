@@ -11,13 +11,24 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient();
 
+    // Get the contest ID first
+    const { data: contestData, error: fetchError } = await supabase
+      .from('contest')
+      .select('id')
+      .single();
+
+    if (fetchError || !contestData) {
+      console.error('Error fetching contest:', fetchError);
+      return NextResponse.json({ error: 'Contest not found' }, { status: 404 });
+    }
+
     const { error } = await supabase
       .from('contest')
       .update({
         freeze_public_display: freeze,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', (await supabase.from('contest').select('id').single()).data?.id);
+      } as any)
+      .eq('id', (contestData as any).id);
 
     if (error) {
       console.error('Error updating freeze status:', error);

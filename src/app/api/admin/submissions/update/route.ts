@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
         points_awarded: points,
         admin_notes: `Status changed to ${action === 'approve' ? 'approved' : 'rejected'} by admin`,
         updated_at: new Date().toISOString()
-      })
+      } as any)
       .eq('id', submissionId);
 
     if (updateError) {
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
       const { data: contestant, error: contestantError } = await supabase
         .from('contestants')
         .select('id, current_points')
-        .eq('id', submission.contestant_id)
+        .eq('id', (submission as any).contestant_id)
         .single();
 
       if (contestantError || !contestant) {
@@ -56,11 +56,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to fetch contestant' }, { status: 500 });
       }
 
-      const newPoints = contestant.current_points + points;
+      const newPoints = (contestant as any).current_points + points;
       const newTimestamp = new Date().toISOString();
 
       const { error: transactionError } = await supabase.rpc('add_points_transaction', {
-        contestant_id_param: contestant.id,
+        contestant_id_param: (contestant as any).id,
         points_delta: points,
         source_param: 'ai_submission_approval',
         applied_by_user_id_param: 'admin', // In production, use actual admin user ID

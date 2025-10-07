@@ -5,8 +5,8 @@ import { LeaderboardEntry } from '@/lib/database.types'
 // Store active connections
 const connections = new Set<ReadableStreamDefaultController>()
 
-// Function to broadcast updates to all connected clients
-export function broadcastUpdate(data: any) {
+// Function to broadcast updates to all connected clients (internal use only)
+function broadcastUpdate(data: any) {
   const message = `data: ${JSON.stringify(data)}\n\n`
   
   // Create a copy of the connections set to avoid modification during iteration

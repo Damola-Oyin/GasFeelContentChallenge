@@ -17,18 +17,18 @@ async function checkCSRAuth(request: NextRequest) {
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('role, is_active')
-      .eq('email', user.email)
+      .eq('email', user.email! as any)
       .single();
 
     if (profileError || !profile) {
       return { error: 'User profile not found', status: 403 };
     }
 
-    if (!profile.is_active) {
+    if (!(profile as any).is_active) {
       return { error: 'Account is inactive', status: 403 };
     }
 
-    if (!['admin', 'csr'].includes(profile.role)) {
+    if (!['admin', 'csr'].includes((profile as any).role)) {
       return { error: 'CSR or Admin access required', status: 403 };
     }
 
@@ -71,13 +71,13 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const endAt = new Date(contest.end_at);
+    const endAt = new Date((contest as any).end_at);
 
     if (now > endAt) {
       return NextResponse.json({ error: 'Challenge deadline has passed. Point additions are disabled.' }, { status: 400 });
     }
 
-    if (contest.status !== 'live') {
+    if ((contest as any).status !== 'live') {
       return NextResponse.json({ error: 'Contest is not in live mode' }, { status: 400 });
     }
 
@@ -95,12 +95,12 @@ export async function POST(request: NextRequest) {
     // Use the authenticated user's email
     const appliedByUserId = authResult.user.email!;
 
-    const newPoints = contestant.current_points + 10;
+    const newPoints = (contestant as any).current_points + 10;
     const nowTimestamp = now.toISOString();
 
     // Start a transaction
     const { error: transactionError } = await supabase.rpc('add_points_transaction', {
-      contestant_id_param: contestant.id,
+      contestant_id_param: (contestant as any).id,
       points_delta: 10,
       source_param: 'csr',
       applied_by_user_id_param: appliedByUserId,
@@ -117,8 +117,8 @@ export async function POST(request: NextRequest) {
       success: true,
       message: 'Points added successfully',
       contestant: {
-        external_id: contestant.external_id,
-        previous_points: contestant.current_points,
+        external_id: (contestant as any).external_id,
+        previous_points: (contestant as any).current_points,
         new_points: newPoints
       }
     });

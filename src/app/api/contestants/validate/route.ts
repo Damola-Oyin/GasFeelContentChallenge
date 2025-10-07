@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     const { data: contestant, error } = await supabase
       .from('contestants')
       .select('external_id, current_points')
-      .eq('external_id', contestantId)
+      .eq('external_id', contestantId as any)
       .single();
 
     if (error || !contestant) {

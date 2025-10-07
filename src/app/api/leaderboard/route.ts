@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Add rank to each contestant
-    const leaderboardEntries: LeaderboardEntry[] = contestants?.map((contestant, index) => ({
+    const leaderboardEntries: LeaderboardEntry[] = contestants?.map((contestant: any, index) => ({
       rank: index + 1,
       external_id: contestant.external_id,
       current_points: contestant.current_points,

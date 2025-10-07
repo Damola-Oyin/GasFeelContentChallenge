@@ -30,13 +30,13 @@ export async function GET(request: NextRequest) {
     }
 
     // Find the specific contestant
-    const contestantIndex = allContestants?.findIndex(c => c.external_id === contestantId)
+    const contestantIndex = allContestants?.findIndex((c: any) => c.external_id === contestantId)
     
     if (contestantIndex === -1 || contestantIndex === undefined) {
       return NextResponse.json({ error: 'Contestant not found' }, { status: 404 })
     }
 
-    const contestant = allContestants[contestantIndex]
+    const contestant = (allContestants as any)[contestantIndex]
     const rank = contestantIndex + 1
     const isInTop100 = rank <= 100
 
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
       const startIndex = Math.max(0, contestantIndex - 10)
       const endIndex = Math.min(allContestants.length, contestantIndex + 11)
       
-      neighbors = allContestants.slice(startIndex, endIndex).map((c, index) => ({
+      neighbors = (allContestants as any).slice(startIndex, endIndex).map((c: any, index: number) => ({
         rank: startIndex + index + 1,
         external_id: c.external_id,
         current_points: c.current_points,
@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
     }
 
     const result: ContestantSearchResult = {
-      external_id: contestant.external_id,
+      external_id: (contestant as any).external_id,
       rank,
-      current_points: contestant.current_points,
+      current_points: (contestant as any).current_points,
       is_in_top_100: isInTop100,
       neighbors
     }

@@ -16,21 +16,21 @@ export async function GET(request: NextRequest) {
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('role, is_active')
-      .eq('email', user.email)
+      .eq('email', user.email! as any)
       .single();
 
     if (profileError || !profile) {
       return NextResponse.json({ error: 'User profile not found' }, { status: 403 });
     }
 
-    if (!profile.is_active) {
+    if (!(profile as any).is_active) {
       return NextResponse.json({ error: 'Account is inactive' }, { status: 403 });
     }
 
     const userWithRole = {
       id: user.id,
       email: user.email!,
-      role: profile.role as 'admin' | 'csr' | 'public'
+      role: (profile as any).role as 'admin' | 'csr' | 'public'
     };
 
     return NextResponse.json(userWithRole);

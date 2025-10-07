@@ -16,8 +16,8 @@ export async function POST(request: NextRequest) {
       .update({
         status: status,
         updated_at: new Date().toISOString()
-      })
-      .eq('id', (await supabase.from('contest').select('id').single()).data?.id);
+      } as any)
+      .eq('id', ((await supabase.from('contest').select('id').single()).data as any)?.id);
 
     if (error) {
       console.error('Error updating contest status:', error);
