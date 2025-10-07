@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase/client'
 import { LeaderboardEntry } from '@/lib/database.types'
 
+// Force dynamic rendering for this route (SSE endpoints can't be static)
+export const dynamic = 'force-dynamic'
+
 // Store active connections
 const connections = new Set<ReadableStreamDefaultController>()
 
