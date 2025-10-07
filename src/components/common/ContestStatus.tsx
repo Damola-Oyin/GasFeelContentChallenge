@@ -1,16 +1,54 @@
 'use client'
 
+import { useState, useEffect } from 'react';
+
 interface ContestStatusProps {
   contest: any;
 }
 
 export default function ContestStatus({ contest }: ContestStatusProps) {
+  const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const [isPastDeadline, setIsPastDeadline] = useState(false);
+
+  // Calculate countdown - same logic as homepage (14 days from tomorrow)
+  useEffect(() => {
+    const calculateCountdown = () => {
+      const now = new Date();
+      const tomorrow = new Date(now);
+      tomorrow.setDate(now.getDate() + 1);
+      tomorrow.setHours(0, 0, 0, 0);
+      
+      const contestEnd = new Date(tomorrow);
+      contestEnd.setDate(tomorrow.getDate() + 14);
+      contestEnd.setHours(23, 59, 59, 999);
+      
+      const timeDiff = contestEnd.getTime() - now.getTime();
+      
+      if (timeDiff > 0) {
+        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+        
+        setCountdown({ days, hours, minutes, seconds });
+        setIsPastDeadline(false);
+      } else {
+        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        setIsPastDeadline(true);
+      }
+    };
+
+    calculateCountdown();
+    const interval = setInterval(calculateCountdown, 1000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   if (!contest) return null;
 
   const isLive = contest.status === 'live';
   const isVerification = contest.status === 'verification';
   const isFinal = contest.status === 'final';
-  const isPastDeadline = new Date() > new Date(contest.end_at);
 
   let statusColor = 'bg-blue-50 border-blue-200 text-blue-800';
   let statusText = 'Contest Active';
@@ -47,19 +85,32 @@ export default function ContestStatus({ contest }: ContestStatusProps) {
   }
 
   return (
-    <div className={`glass-card backdrop-blur-md border shadow-sm p-4 mb-6 ${statusColor}`}>
-      <div className="flex items-center gap-2">
-        {statusIcon}
-        <span className="font-medium">{statusText}</span>
-      </div>
-      {isLive && (
-        <div className="mt-2 text-sm">
-          <span>Ends: </span>
-          <span className="font-medium">
-            {new Date(contest.end_at).toLocaleString()}
-          </span>
+    <div className={`glass-card backdrop-blur-md border shadow-sm p-3 sm:p-4 mb-6 ${statusColor}`}>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center gap-2">
+          {statusIcon}
+          <span className="font-medium text-sm sm:text-base">{statusText}</span>
         </div>
-      )}
+        {isLive && !isPastDeadline && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs sm:text-sm">Time remaining:</span>
+            <div className="flex gap-1">
+              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+                {countdown.days}d
+              </div>
+              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+                {countdown.hours}h
+              </div>
+              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+                {countdown.minutes}m
+              </div>
+              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+                {countdown.seconds}s
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
