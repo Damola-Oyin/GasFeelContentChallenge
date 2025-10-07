@@ -1,49 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
-
-// Helper function to check if user is CSR or Admin
-async function checkCSRAuth(request: NextRequest) {
-  try {
-    const supabase = createClient();
-    
-    // Get current user from session
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    
-    if (authError || !user) {
-      return { error: 'Not authenticated', status: 401 };
-    }
-
-    // Check user profile and role
-    const { data: profile, error: profileError } = await supabase
-      .from('user_profiles')
-      .select('role, is_active')
-      .eq('email', user.email! as any)
-      .single();
-
-    if (profileError || !profile) {
-      return { error: 'User profile not found', status: 403 };
-    }
-
-    if (!(profile as any).is_active) {
-      return { error: 'Account is inactive', status: 403 };
-    }
-
-    if (!['admin', 'csr'].includes((profile as any).role)) {
-      return { error: 'CSR or Admin access required', status: 403 };
-    }
-
-    return { user, profile };
-  } catch (error) {
-    return { error: 'Authentication failed', status: 500 };
-  }
-}
+import { verifyAuthToken, checkRole } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
-    // Check CSR/Admin authentication
-    const authResult = await checkCSRAuth(request);
-    if ('error' in authResult) {
-      return NextResponse.json({ error: authResult.error }, { status: authResult.status });
+    // Check CSR/Admin authentication using JWT
+    const authResult = verifyAuthToken(request);
+    if (authResult.error || !authResult.user) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
+    }
+
+    // Check if user has CSR or Admin role
+    if (!checkRole(authResult.user.role, 'csr')) {
+      return NextResponse.json({ error: 'CSR or Admin access required' }, { status: 403 });
     }
 
     const { contestant_id } = await request.json();
@@ -59,10 +28,10 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient();
 
-    // Check contest status and deadline
+    // Check contest status and deadline using dynamic timeline (14 days from tomorrow)
     const { data: contest, error: contestError } = await supabase
       .from('contest')
-      .select('end_at, status')
+      .select('status')
       .single();
 
     if (contestError) {
@@ -70,10 +39,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to verify contest status' }, { status: 500 });
     }
 
+    // Calculate dynamic contest end date (same as frontend countdown)
     const now = new Date();
-    const endAt = new Date((contest as any).end_at);
+    const tomorrow = new Date(now);
+    tomorrow.setDate(now.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    
+    const contestEnd = new Date(tomorrow);
+    contestEnd.setDate(tomorrow.getDate() + 14);
+    contestEnd.setHours(23, 59, 59, 999);
 
-    if (now > endAt) {
+    if (now > contestEnd) {
       return NextResponse.json({ error: 'Challenge deadline has passed. Point additions are disabled.' }, { status: 400 });
     }
 
@@ -93,7 +69,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use the authenticated user's email
-    const appliedByUserId = authResult.user.email!;
+    const appliedByUserId = authResult.user.email;
 
     const newPoints = (contestant as any).current_points + 10;
     const nowTimestamp = now.toISOString();

@@ -39,16 +39,22 @@ export default function ContestStatus({ contest }: ContestStatusProps) {
     };
 
     calculateCountdown();
-    const interval = setInterval(calculateCountdown, 1000);
     
-    return () => clearInterval(interval);
-  }, []);
+    // Don't update countdown if display is frozen (for admin/CSR pages)
+    const shouldUpdate = !contest?.freeze_public_display;
+    const interval = shouldUpdate ? setInterval(calculateCountdown, 1000) : null;
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [contest?.freeze_public_display]);
 
   if (!contest) return null;
 
   const isLive = contest.status === 'live';
   const isVerification = contest.status === 'verification';
   const isFinal = contest.status === 'final';
+  const isFrozen = contest.freeze_public_display;
 
   let statusColor = 'bg-blue-50 border-blue-200 text-blue-800';
   let statusText = 'Contest Active';
@@ -93,18 +99,20 @@ export default function ContestStatus({ contest }: ContestStatusProps) {
         </div>
         {isLive && !isPastDeadline && (
           <div className="flex items-center gap-2">
-            <span className="text-xs sm:text-sm">Time remaining:</span>
+            <span className="text-xs sm:text-sm">
+              {isFrozen ? '🔒 Frozen at:' : 'Time remaining:'}
+            </span>
             <div className="flex gap-1">
-              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+              <div className={`px-2 py-1 rounded text-xs sm:text-sm font-bold ${isFrozen ? 'bg-gray-300 text-gray-700' : 'bg-white/50'}`}>
                 {countdown.days}d
               </div>
-              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+              <div className={`px-2 py-1 rounded text-xs sm:text-sm font-bold ${isFrozen ? 'bg-gray-300 text-gray-700' : 'bg-white/50'}`}>
                 {countdown.hours}h
               </div>
-              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+              <div className={`px-2 py-1 rounded text-xs sm:text-sm font-bold ${isFrozen ? 'bg-gray-300 text-gray-700' : 'bg-white/50'}`}>
                 {countdown.minutes}m
               </div>
-              <div className="bg-white/50 px-2 py-1 rounded text-xs sm:text-sm font-bold">
+              <div className={`px-2 py-1 rounded text-xs sm:text-sm font-bold ${isFrozen ? 'bg-gray-300 text-gray-700' : 'bg-white/50'}`}>
                 {countdown.seconds}s
               </div>
             </div>

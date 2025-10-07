@@ -78,10 +78,14 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
     setSuccess(null);
 
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/csr/add-points', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           contestant_id: contestantId.trim(),

@@ -51,6 +51,8 @@ export default function AdminControls({ contest, onUpdate }: AdminControlsProps)
     };
 
     calculateCountdown();
+    
+    // Admin always sees live countdown (not affected by freeze)
     const interval = setInterval(calculateCountdown, 1000);
     
     return () => clearInterval(interval);
@@ -64,9 +66,15 @@ export default function AdminControls({ contest, onUpdate }: AdminControlsProps)
     setSuccess(null);
     
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/admin/contest/freeze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           freeze: !contest.freeze_public_display
         })
@@ -93,9 +101,15 @@ export default function AdminControls({ contest, onUpdate }: AdminControlsProps)
     setSuccess(null);
     
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/admin/contest/status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           status: newStatus
         })
@@ -132,9 +146,15 @@ export default function AdminControls({ contest, onUpdate }: AdminControlsProps)
     setSuccess(null);
     
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/admin/contest/publish-final', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({})
       });
       
