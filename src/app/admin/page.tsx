@@ -27,25 +27,49 @@ export default function AdminPage() {
 
   const fetchContestStatus = async () => {
     try {
+      console.log('Fetching contest status...');
       const response = await fetch('/api/contest/status');
+      console.log('Contest status response:', response.status, response.statusText);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('Contest data received:', data);
         setContestStatus(data);
+      } else {
+        const errorData = await response.json();
+        console.error('Contest status error:', errorData);
+        setError(`Failed to fetch contest status: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error fetching contest status:', error);
+      setError('Failed to fetch contest status');
     }
   };
 
   const fetchSubmissions = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/admin/submissions');
+      
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        setError('Authentication token not found. Please login again.');
+        return;
+      }
+
+      const response = await fetch('/api/admin/submissions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
       if (response.ok) {
         const data = await response.json();
         setSubmissions(data);
       } else {
-        setError('Failed to fetch submissions');
+        const errorData = await response.json();
+        setError(`Failed to fetch submissions: ${errorData.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Error fetching submissions:', error);
@@ -56,6 +80,8 @@ export default function AdminPage() {
   };
 
   const handleSubmissionsUpdate = () => {
+    // Force refresh submissions to get latest status
+    console.log('Admin page: Refreshing submissions...');
     fetchSubmissions();
   };
 

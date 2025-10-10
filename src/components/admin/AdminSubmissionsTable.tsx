@@ -5,11 +5,11 @@ import { useState, useMemo } from 'react';
 interface Submission {
   id: string;
   contestant_id: string;
-  submission_url: string;
+  delta: number; // Points to be awarded (0 for pending submissions)
   submitted_at: string;
-  status: 'pending' | 'approved' | 'rejected';
-  points_awarded: number | null;
-  admin_notes: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'ineligible_late';
+  decided_by_user_id: string | null;
+  decided_at: string | null;
   contestant: {
     external_id: string;
     first_name: string;
@@ -72,9 +72,19 @@ export default function AdminSubmissionsTable({
     setError(null);
     
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+
       const response = await fetch('/api/admin/submissions/bulk', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           submissionIds: selectedIds,
           action: bulkAction,
@@ -100,19 +110,42 @@ export default function AdminSubmissionsTable({
     setError(null);
     
     try {
+      // Get auth token from localStorage
+      const token = localStorage.getItem('auth_token');
+      
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+
+      // Find the submission to get the actual points
+      const submission = submissions.find(s => s.id === submissionId);
+      if (!submission) {
+        throw new Error('Submission not found');
+      }
+
+      const points = action === 'approve' ? submission.delta : 0;
+      console.log(`Admin UI: ${action} submission ${submissionId} with ${points} points`);
+
       const response = await fetch('/api/admin/submissions/update', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
         body: JSON.stringify({
           submissionId,
           action,
-          points: action === 'approve' ? 10 : 0
+          points
         })
       });
       
       if (!response.ok) {
-        throw new Error(`Failed to ${action} submission`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to ${action} submission`);
       }
+      
+      const result = await response.json();
+      console.log(`Admin UI: ${action} result:`, result);
       
       onUpdate();
     } catch (err) {
@@ -250,9 +283,6 @@ export default function AdminSubmissionsTable({
                 Contestant
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                Submission
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                 Submitted At
               </th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -297,16 +327,6 @@ export default function AdminSubmissionsTable({
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4">
-                    <a
-                      href={submission.submission_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-cobalt hover:text-cobalt/80 truncate block max-w-xs"
-                    >
-                      {submission.submission_url}
-                    </a>
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                     {formatDate(submission.submitted_at)}
                   </td>
@@ -314,7 +334,15 @@ export default function AdminSubmissionsTable({
                     {getStatusBadge(submission.status, isLate)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    {submission.points_awarded || '-'}
+                    {submission.status === 'pending' ? (
+                      <span className="text-cobalt font-medium">{submission.delta} points</span>
+                    ) : submission.status === 'approved' ? (
+                      <span className="text-green-600 font-medium">{submission.delta} points</span>
+                    ) : submission.status === 'rejected' ? (
+                      <span className="text-gray-500">0 points</span>
+                    ) : (
+                      <span className="text-gray-500">{submission.delta} points</span>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex gap-2">

@@ -41,22 +41,21 @@ export async function GET(request: NextRequest) {
 
     const contestant = (allContestants as any)[contestantIndex]
     const rank = contestantIndex + 1
-    const isInTop100 = rank <= 100
+    const isInTop100 = rank <= 100 // Keep this for backward compatibility with frontend
 
     let neighbors: LeaderboardEntry[] | undefined
 
-    if (!isInTop100) {
-      // Get ±10 neighbors around the contestant's rank
-      const startIndex = Math.max(0, contestantIndex - 10)
-      const endIndex = Math.min(allContestants.length, contestantIndex + 11)
-      
-      neighbors = (allContestants as any).slice(startIndex, endIndex).map((c: any, index: number) => ({
-        rank: startIndex + index + 1,
-        external_id: c.external_id,
-        current_points: c.current_points,
-        first_reached_current_points_at: c.first_reached_current_points_at,
-      }))
-    }
+    // Always show neighbors since we now display all contestants
+    // Get ±10 neighbors around the contestant's rank
+    const startIndex = Math.max(0, contestantIndex - 10)
+    const endIndex = Math.min(allContestants.length, contestantIndex + 11)
+    
+    neighbors = (allContestants as any).slice(startIndex, endIndex).map((c: any, index: number) => ({
+      rank: startIndex + index + 1,
+      external_id: c.external_id,
+      current_points: c.current_points,
+      first_reached_current_points_at: c.first_reached_current_points_at,
+    }))
 
     const result: ContestantSearchResult = {
       external_id: (contestant as any).external_id,

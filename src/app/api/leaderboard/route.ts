@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get the top 100 contestants ordered by points (desc) and first_reached_current_points_at (asc)
+    // Get ALL contestants ordered by points (desc) and first_reached_current_points_at (asc)
+    // Zero-point contestants will appear at the bottom
     const supabase = createClient();
     const { data: contestants, error } = await supabase
       .from('contestants')
       .select('external_id, current_points, first_reached_current_points_at')
       .order('current_points', { ascending: false })
       .order('first_reached_current_points_at', { ascending: true })
-      .limit(100)
 
     if (error) {
       console.error('Error fetching leaderboard:', error)

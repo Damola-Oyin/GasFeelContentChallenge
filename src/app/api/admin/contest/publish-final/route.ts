@@ -17,6 +17,18 @@ export async function POST(request: NextRequest) {
 
     const supabase = createClient();
 
+    // Get contest ID first
+    const { data: contests, error: fetchError } = await supabase
+      .from('contest')
+      .select('id');
+
+    if (fetchError || !contests || contests.length === 0) {
+      console.error('Error fetching contest:', fetchError);
+      return NextResponse.json({ error: 'Contest not found' }, { status: 404 });
+    }
+
+    const contestId = contests[0].id;
+
     // Publish final results: set status to 'final' and unfreeze display
     const { error } = await supabase
       .from('contest')
@@ -25,7 +37,7 @@ export async function POST(request: NextRequest) {
         freeze_public_display: false,
         updated_at: new Date().toISOString()
       } as any)
-      .eq('id', ((await supabase.from('contest').select('id').single()).data as any)?.id);
+      .eq('id', contestId);
 
     if (error) {
       console.error('Error publishing final results:', error);

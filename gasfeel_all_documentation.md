@@ -35,7 +35,7 @@ Key Features:
 *   Search functionality and deep-linking for individual contestant IDs.
 *   Dynamic display of "Your Rank" for contestants outside the Top-100.
 *   Two distinct administrative interfaces ("backdoors"):
-    *   CSR Add Points: A simplified interface for CSRs to add 10 points to a single contestant ID.
+    *   CSR Add Points: A simplified interface for CSRs to add 100 points to a single contestant ID.
     *   Admin Approvals: An interface for Admins to review, approve, or reject AI-generated point submissions, with bulk action capabilities.
 *   Contest state management: Live, Verification, and Final modes.
 *   Branded, mobile-first user interface with accessibility considerations.
@@ -108,7 +108,7 @@ Why This Stack: The chosen stack is designed for fast shipping, minimal moving p
 
 3.2.2 CSR Add Points Page (Role: CSR)
 *   Access: Only authenticated users with the "CSR" role can access this page.
-*   Functionality: Presents a form requiring a "Contestant ID" input. The action available is to "Add 10 points" (this amount is fixed). Points are applied immediately upon submission.
+*   Functionality: Presents a form requiring a "Contestant ID" input. The action available is to "Add 100 points" (this amount is fixed). Points are applied immediately upon submission.
 *   Guardrails:
     *   Validation: The system must validate that the entered `Contestant ID` exists.
     *   Preview: A "Current → Next" points preview is shown before submission.
@@ -296,7 +296,7 @@ TECHSTACK
 │   │   │   │       └── # Handles POST requests for "Freeze/Unfreeze" public display and "Publish Final Results" actions.
 │   │   │   └── csr/
 │   │   │       └── add-points/route.ts
-│   │   │           └── # Handles POST requests from CSRs to add 10 points to a contestant.
+│   │   │           └── # Handles POST requests from CSRs to add 100 points to a contestant.
 │   │   ├── (public)/
 │   │   │   ├── layout.tsx
 │   │   │   │   └── # Layout for public-facing pages (header, general styling).
@@ -358,7 +358,7 @@ TECHSTACK
 │   │   │       └── # Contains the "Freeze/Unfreeze" public display and "Publish Final Results" buttons.
 │   │   └── csr/
 │   │       └── AddPointsForm.tsx
-│   │           └── # Form for CSRs to add 10 points to a single contestant ID, with validation and preview.
+│   │           └── # Form for CSRs to add 100 points to a single contestant ID, with validation and preview.
 │   ├── lib/
 │   │   ├── auth.ts
 │   │   │   └── # Supabase Auth helper functions (signInWithGoogle, signOut, getSession, getUserRole).
@@ -694,8 +694,8 @@ To allow authorized Customer Service Representatives (CSRs) to quickly and safel
     *   CSR Add Points Form: A clean, functional form within a branded layout. Header: "CSR Add Points - GasFeel Content Challenge".
         *   Input Field Label: "Contestant ID".
         *   Input Field: A text input styled with glassmorphic cards, designed for `GF-XXXXXX` format.
-        *   Read-only Text: "Add 10 points (fixed)" - clearly indicating the fixed amount.
-        *   Preview Area: A section displaying "Current Points: [X] → Next Points: [X+10]" (initially "---" if no ID entered or invalid).
+        *   Read-only Text: "Add 100 points (fixed)" - clearly indicating the fixed amount.
+        *   Preview Area: A section displaying "Current Points: [X] → Next Points: [X+100]" (initially "---" if no ID entered or invalid).
         *   Button: "Add Points" - a pill-shaped button, filled with GasFeel's Golden Sun color.
 *   **Interaction Patterns:**
     *   Standard Google OAuth flow for authentication and authorization. Role-based access control is enforced at the backend.
@@ -715,11 +715,11 @@ To allow authorized Customer Service Representatives (CSRs) to quickly and safel
 3.2.3. Step 3: Confirming and Applying Points
 *   **Action:** CSR clicks the "Add Points" button.
 *   **System Response:**
-    *   **Confirmation Dialog:** A modal dialog appears, stating: "Are you sure you want to add 10 points to [Contestant ID]? This action cannot be undone." It includes "Cancel" and "Confirm" (Golden Sun) buttons.
+    *   **Confirmation Dialog:** A modal dialog appears, stating: "Are you sure you want to add 100 points to [Contestant ID]? This action cannot be undone." It includes "Cancel" and "Confirm" (Golden Sun) buttons.
     *   **Upon Confirmation:**
-        *   A `ScoreChange` ledger entry is created in the database (source: `csr`, `delta`: 10, `created_at`: server time of submission). `Contestant.current_points` and `first_reached_current_points_at` are updated.
+        *   A `ScoreChange` ledger entry is created in the database (source: `csr`, `delta`: 100, `created_at`: server time of submission). `Contestant.current_points` and `first_reached_current_points_at` are updated.
         *   The public leaderboard immediately updates via SSE to reflect the new points and potential rank change.
-        *   A success toast notification appears (e.g., top-right), stating: "10 points added to [Contestant ID] successfully!"
+        *   A success toast notification appears (e.g., top-right), stating: "100 points added to [Contestant ID] successfully!"
         *   The form input is cleared, and the preview area resets, ready for the next entry.
 *   **Wireframe Description:**
     *   Confirmation modal: A standard modal dialog with clear action buttons.
@@ -893,7 +893,7 @@ GasFeel's brand colors are integral to the UI, applied thoughtfully to maintain 
     *   **Forms & Inputs (Backdoor Operations):**
         *   **Input Fields:** Consistent with the glassmorphic theme, inputs will have a subtle, light background, a 1px inner border, and a gentle focus state (e.g., a subtle glow or border color change).
         *   **Labels:** Clear, concise labels (Inter font) positioned above input fields.
-        *   **Guardrails/Previews:** The 'Current → Next' points preview will be clearly styled to show the change (e.g., `Current: X points → Next: X+10 points`).
+        *   **Guardrails/Previews:** The 'Current → Next' points preview will be clearly styled to show the change (e.g., `Current: X points → Next: X+100 points`).
         *   **Confirmation Dialogs:** Simple, clean modal dialogs for critical actions, using clear microcopy and distinct 'Confirm' (Golden Sun) and 'Cancel' (Charcoal/outline) buttons.
         *   **Success Toasts:** Non-intrusive, temporary notifications for successful operations, styled subtly with a green hue or similar positive indicator.
 
@@ -921,7 +921,7 @@ Adherence to accessibility best practices is a core principle:
     *   **Countdown:** "Ends in" followed by the segment chips (e.g., "Ends in 01D 05H 30M 15S").
     *   **Search Input Placeholder:** "Enter your ID (e.g., GF-AB12CD)"
     *   **Status Banners:** "Contest ended — results pending verification.", "Verification mode."
-    *   **Admin Backdoor Notifications:** Clear, concise messages for success, error, and confirmation dialogues (e.g., "Contestant ID updated successfully.", "Are you sure you want to add 10 points to GF-XXXXXX?").
+    *   **Admin Backdoor Notifications:** Clear, concise messages for success, error, and confirmation dialogues (e.g., "Contestant ID updated successfully.", "Are you sure you want to add 100 points to GF-XXXXXX?").
     *   **Consistency:** All microcopy should be clear, concise, and consistent in tone, aligning with GasFeel's brand voice.
 
 This styling guide ensures a cohesive, user-friendly, and branded experience for the GasFeel Content Challenge leaderboard across all touchpoints.

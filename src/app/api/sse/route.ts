@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/server'
 import { LeaderboardEntry } from '@/lib/database.types'
 
 // Force dynamic rendering for this route (SSE endpoints can't be static)
@@ -78,13 +78,15 @@ async function sendLeaderboardUpdate(controller: ReadableStreamDefaultController
       return
     }
 
-    // Get the top 100 contestants
-    const { data: contestants, error } = await supabaseAdmin
+    // Create server-side Supabase client for this request
+    const supabase = createClient()
+
+    // Get ALL contestants (matching leaderboard behavior)
+    const { data: contestants, error } = await supabase
       .from('contestants')
       .select('external_id, current_points, first_reached_current_points_at')
       .order('current_points', { ascending: false })
       .order('first_reached_current_points_at', { ascending: true })
-      .limit(100)
 
     if (error) {
       console.error('Error fetching leaderboard for SSE:', error)
@@ -105,10 +107,11 @@ async function sendLeaderboardUpdate(controller: ReadableStreamDefaultController
     })) || []
 
     // Get contest status
-    const { data: contest } = await supabaseAdmin
+    const { data: contests } = await supabase
       .from('contest')
       .select('status, end_at, freeze_public_display')
-      .single()
+    
+    const contest = contests && contests.length > 0 ? contests[0] : null
 
     const updateData = {
       type: 'leaderboard_update',

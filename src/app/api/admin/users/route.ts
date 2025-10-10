@@ -14,15 +14,20 @@ async function checkAdminAuth(request: NextRequest) {
     }
 
     // Check user profile and role
-    const { data: profile, error: profileError } = await supabase
+    const { data: profiles, error: profileError } = await supabase
       .from('user_profiles')
       .select('role, is_active')
-      .eq('email', user.email! as any)
-      .single();
+      .eq('email', user.email! as any);
 
-    if (profileError || !profile) {
+    if (profileError) {
+      return { error: 'Failed to fetch user profile', status: 500 };
+    }
+
+    if (!profiles || profiles.length === 0) {
       return { error: 'User profile not found', status: 403 };
     }
+
+    const profile = profiles[0];
 
     if (!(profile as any).is_active) {
       return { error: 'Account is inactive', status: 403 };
@@ -93,31 +98,31 @@ export async function POST(request: NextRequest) {
     const supabase = createClient();
     
     // Check if user already exists
-    const { data: existingUser } = await supabase
+    const { data: existingUsers } = await supabase
       .from('user_profiles')
       .select('id')
-      .eq('email', email.toLowerCase().trim())
-      .single();
+      .eq('email', email.toLowerCase().trim());
 
-    if (existingUser) {
+    if (existingUsers && existingUsers.length > 0) {
       return NextResponse.json({ error: 'User already exists' }, { status: 400 });
     }
 
     // Create new user profile (only admins can do this)
-    const { data: newUser, error } = await supabase
+    const { data: newUsers, error } = await supabase
       .from('user_profiles')
       .insert({
         email: email.toLowerCase().trim(),
         role: role,
         is_active: true
       } as any)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Error creating user profile:', error);
       return NextResponse.json({ error: 'Failed to create user' }, { status: 500 });
     }
+
+    const newUser = newUsers && newUsers.length > 0 ? newUsers[0] : null;
 
     // Log the action (for audit trail)
     console.log(`Admin ${authResult.user?.email} created user ${email} with role ${role}`);
@@ -150,11 +155,12 @@ export async function PATCH(request: NextRequest) {
     const supabase = createClient();
     
     // Prevent users from demoting themselves (security measure)
-    const { data: targetUser } = await supabase
+    const { data: targetUsers } = await supabase
       .from('user_profiles')
       .select('email, role')
-      .eq('id', userId)
-      .single();
+      .eq('id', userId);
+
+    const targetUser = targetUsers && targetUsers.length > 0 ? targetUsers[0] : null;
 
     if (targetUser && (targetUser as any).email === authResult.user?.email && role !== 'admin') {
       return NextResponse.json({ 
@@ -162,20 +168,21 @@ export async function PATCH(request: NextRequest) {
       }, { status: 400 });
     }
 
-    const { data: updatedUser, error } = await supabase
+    const { data: updatedUsers, error } = await supabase
       .from('user_profiles')
       .update({ 
         role: role,
         updated_at: new Date().toISOString()
       } as any)
       .eq('id', userId)
-      .select()
-      .single();
+      .select();
 
     if (error) {
       console.error('Error updating user role:', error);
       return NextResponse.json({ error: 'Failed to update user role' }, { status: 500 });
     }
+
+    const updatedUser = updatedUsers && updatedUsers.length > 0 ? updatedUsers[0] : null;
 
     // Log the action (for audit trail)
     console.log(`Admin ${authResult.user?.email} updated user ${(targetUser as any)?.email} role to ${role}`);

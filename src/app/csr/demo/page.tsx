@@ -64,7 +64,7 @@ export default function CSRDemoPage() {
               Add Points to Contestant
             </h2>
             <p className="text-gray-600">
-              Enter a contestant ID to add 10 points. This action cannot be undone.
+              Enter a contestant ID to add 100 points. This action cannot be undone.
             </p>
           </div>
           
@@ -81,7 +81,7 @@ export default function CSRDemoPage() {
             <p><strong>1.</strong> Try entering: <code className="bg-gray-100 px-2 py-1 rounded">GF-AB12CD</code></p>
             <p><strong>2.</strong> The form should validate and show current points</p>
             <p><strong>3.</strong> Click "Add Points" to test the confirmation dialog</p>
-            <p><strong>4.</strong> Confirm to add 10 points to the contestant</p>
+            <p><strong>4.</strong> Confirm to add 100 points to the contestant</p>
           </div>
         </div>
       </main>

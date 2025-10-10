@@ -10,17 +10,13 @@ export default function ContestStatus({ contest }: ContestStatusProps) {
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isPastDeadline, setIsPastDeadline] = useState(false);
 
-  // Calculate countdown - same logic as homepage (14 days from tomorrow)
+  // Calculate countdown using contest data from API
   useEffect(() => {
+    if (!contest?.end_at) return;
+
     const calculateCountdown = () => {
       const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
-      
-      const contestEnd = new Date(tomorrow);
-      contestEnd.setDate(tomorrow.getDate() + 14);
-      contestEnd.setHours(23, 59, 59, 999);
+      const contestEnd = new Date(contest.end_at);
       
       const timeDiff = contestEnd.getTime() - now.getTime();
       
@@ -47,14 +43,23 @@ export default function ContestStatus({ contest }: ContestStatusProps) {
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [contest?.freeze_public_display]);
+  }, [contest?.end_at, contest?.freeze_public_display]);
 
-  if (!contest) return null;
+  if (!contest) {
+    return (
+      <div className="glass-card backdrop-blur-md bg-gray-50 border border-gray-200 shadow-sm p-3 sm:p-4 mb-6">
+        <div className="flex items-center gap-2">
+          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+          <span className="text-gray-600 text-sm sm:text-base">Loading contest information...</span>
+        </div>
+      </div>
+    );
+  }
 
   const isLive = contest.status === 'live';
   const isVerification = contest.status === 'verification';
   const isFinal = contest.status === 'final';
-  const isFrozen = contest.freeze_public_display;
+      const isFrozen = contest.freeze_public_display;
 
   let statusColor = 'bg-blue-50 border-blue-200 text-blue-800';
   let statusText = 'Contest Active';

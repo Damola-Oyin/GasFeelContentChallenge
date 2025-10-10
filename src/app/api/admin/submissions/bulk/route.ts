@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
+import { verifyAuthToken, checkRole } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    // Check Admin authentication using JWT
+    const authResult = verifyAuthToken(request);
+    if (authResult.error || !authResult.user) {
+      return NextResponse.json({ error: authResult.error }, { status: authResult.status || 401 });
+    }
+
+    // Check if user has Admin role
+    if (!checkRole(authResult.user.role, 'admin')) {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+
     const { submissionIds, action, points } = await request.json();
 
     if (!Array.isArray(submissionIds) || submissionIds.length === 0) {
@@ -22,7 +34,7 @@ export async function POST(request: NextRequest) {
     // Get all submissions that need to be updated
     const { data: submissions, error: fetchError } = await supabase
       .from('ai_submissions')
-      .select('id, contestant_id, status')
+      .select('id, contestant_ID, status')
       .in('id', submissionIds);
 
     if (fetchError || !submissions) {
@@ -31,14 +43,21 @@ export async function POST(request: NextRequest) {
     }
 
     // Update all submissions
+    const updateData: any = {
+      status: action === 'approve' ? 'approved' : 'rejected',
+      decided_by_user_id: 'admin', // TODO: Use actual admin user ID
+      decided_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Only update delta if approving with positive points
+    if (action === 'approve' && points > 0) {
+      updateData.delta = points;
+    }
+
     const { error: updateError } = await supabase
       .from('ai_submissions')
-      .update({
-        status: action === 'approve' ? 'approved' : 'rejected',
-        points_awarded: points,
-        admin_notes: `Bulk ${action === 'approve' ? 'approved' : 'rejected'} by admin`,
-        updated_at: new Date().toISOString()
-      } as any)
+      .update(updateData)
       .in('id', submissionIds);
 
     if (updateError) {
@@ -48,35 +67,55 @@ export async function POST(request: NextRequest) {
 
     // If approved, update contestant points for each approved submission
     if (action === 'approve' && points > 0) {
-      const contestantIds = Array.from(new Set(submissions.map((s: any) => s.contestant_id)));
+      const contestantIds = Array.from(new Set(submissions.map((s: any) => s.contestant_ID)));
       
       for (const contestantId of contestantIds) {
-        const { data: contestant, error: contestantError } = await supabase
+        // Handle both cases: contestant_ID could be database ID or external_id
+        let { data: contestants, error: contestantError } = await supabase
           .from('contestants')
           .select('id, current_points')
-          .eq('id', contestantId)
-          .single();
+          .eq('id', contestantId);
 
-        if (contestantError || !contestant) {
+        // If no match by ID, try by external_id
+        if ((!contestants || contestants.length === 0) && !contestantError) {
+          const result = await supabase
+            .from('contestants')
+            .select('id, current_points')
+            .eq('external_id', contestantId);
+          
+          contestants = result.data;
+          contestantError = result.error;
+        }
+
+        if (contestantError) {
           console.error('Error fetching contestant:', contestantError);
           continue; // Skip this contestant but continue with others
         }
 
+        if (!contestants || contestants.length === 0) {
+          console.error('No contestant found with ID:', contestantId);
+          continue; // Skip this contestant but continue with others
+        }
+
+        const contestant = contestants[0];
         const newPoints = (contestant as any).current_points + points;
         const newTimestamp = new Date().toISOString();
 
-        const { error: transactionError } = await supabase.rpc('add_points_transaction', {
-          contestant_id_param: (contestant as any).id,
-          points_delta: points,
-          source_param: 'ai_submission_bulk_approval',
-          applied_by_user_id_param: 'admin', // In production, use actual admin user ID
-          new_points: newPoints,
-          new_timestamp: newTimestamp,
-        });
+        // Direct update approach
+        const { error: updateContestantError } = await supabase
+          .from('contestants')
+          .update({
+            current_points: newPoints,
+            first_reached_current_points_at: newTimestamp,
+            updated_at: newTimestamp
+          })
+          .eq('id', (contestant as any).id);
 
-        if (transactionError) {
-          console.error('Error in add_points_transaction:', transactionError);
-          // Continue with other contestants even if one fails
+        if (updateContestantError) {
+          console.error(`Error updating contestant ${contestantId}:`, updateContestantError);
+          // Continue processing other contestants even if one fails
+        } else {
+          console.log(`Successfully updated contestant ${contestantId} with ${points} points. New total: ${newPoints}`);
         }
       }
     }

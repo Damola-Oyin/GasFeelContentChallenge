@@ -1,56 +1,107 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react';
-import { useLeaderboard, useContestantSearch } from '@/lib/hooks/useLeaderboard';
+import { useLeaderboard } from '@/lib/hooks/useLeaderboard';
 import { useSSE } from '@/lib/hooks/useSSE';
 import { LeaderboardEntry } from '@/lib/database.types';
 
 export default function LeaderboardPage() {
-  const [searchQuery, setSearchQuery] = useState('');
   const [highlightedContestant, setHighlightedContestant] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<string>('');
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const highlightedRef = useRef<HTMLDivElement>(null);
   
   const { leaderboard, loading, error } = useLeaderboard();
-  const { searchResult, searching, searchError, searchContestant } = useContestantSearch();
   
   // Use SSE for real-time updates
   const { data: sseData, connected } = useSSE('/api/sse');
 
-  // Calculate countdown to contest end (14 days from tomorrow)
+  // Fetch contest data and calculate countdown from database
   useEffect(() => {
-    const calculateCountdown = () => {
-      const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0); // Start of tomorrow
-      
-      const contestEnd = new Date(tomorrow);
-      contestEnd.setDate(tomorrow.getDate() + 14); // 14 days from tomorrow
-      contestEnd.setHours(23, 59, 59, 999); // End of day
-      
-      const timeDiff = contestEnd.getTime() - now.getTime();
-      
-      if (timeDiff > 0) {
-        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+    const fetchContestAndCalculateCountdown = async () => {
+      try {
+        const response = await fetch('/api/contest/status');
+        if (response.ok) {
+          const contestData = await response.json();
+          
+          const calculateCountdown = () => {
+            const now = new Date();
+            const contestEnd = contestData.end_at ? new Date(contestData.end_at) : null;
+            
+            if (contestEnd) {
+              const timeDiff = contestEnd.getTime() - now.getTime();
+              
+              if (timeDiff > 0) {
+                const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+                
+                setCountdown({ days, hours, minutes, seconds });
+              } else {
+                setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+              }
+            } else {
+              // Fallback to hardcoded dates if no contest data
+              const tomorrow = new Date(now);
+              tomorrow.setDate(now.getDate() + 1);
+              tomorrow.setHours(0, 0, 0, 0);
+              
+              const contestEnd = new Date(tomorrow);
+              contestEnd.setDate(tomorrow.getDate() + 14);
+              contestEnd.setHours(23, 59, 59, 999);
+              
+              const timeDiff = contestEnd.getTime() - now.getTime();
+              
+              if (timeDiff > 0) {
+                const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+                
+                setCountdown({ days, hours, minutes, seconds });
+              } else {
+                setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+              }
+            }
+          };
+
+          // Calculate immediately
+          calculateCountdown();
+          
+          // Update every second
+          const interval = setInterval(calculateCountdown, 1000);
+          
+          return () => clearInterval(interval);
+        }
+      } catch (error) {
+        console.error('Error fetching contest data:', error);
+        // Fallback to hardcoded dates
+        const now = new Date();
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
         
-        setCountdown({ days, hours, minutes, seconds });
-      } else {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        const contestEnd = new Date(tomorrow);
+        contestEnd.setDate(tomorrow.getDate() + 14);
+        contestEnd.setHours(23, 59, 59, 999);
+        
+        const timeDiff = contestEnd.getTime() - now.getTime();
+        
+        if (timeDiff > 0) {
+          const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+          
+          setCountdown({ days, hours, minutes, seconds });
+        } else {
+          setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+        }
       }
     };
 
-    // Calculate immediately
-    calculateCountdown();
-    
-    // Update every second
-    const interval = setInterval(calculateCountdown, 1000);
-    
-    return () => clearInterval(interval);
+    fetchContestAndCalculateCountdown();
   }, []);
 
   // Update leaderboard when SSE data arrives
@@ -60,13 +111,6 @@ export default function LeaderboardPage() {
     }
   }, [sseData]);
 
-  // Handle search
-  const handleSearch = (value: string) => {
-    setSearchQuery(value);
-    if (value.trim()) {
-      searchContestant(value.trim());
-    }
-  };
 
   // Auto-scroll to highlighted contestant
   useEffect(() => {
@@ -83,15 +127,11 @@ export default function LeaderboardPage() {
     }
   }, [highlightedContestant]);
 
-  // Handle search result highlighting
-  useEffect(() => {
-    if (searchResult && searchResult.is_in_top_100) {
-      setHighlightedContestant(searchResult.external_id);
-    }
-  }, [searchResult]);
 
   const topThree = leaderboard.slice(0, 3);
-  const top100 = leaderboard.slice(0, 100);
+  const allContestants = leaderboard; // Now shows all contestants
+  const contestantsWithPoints = leaderboard.filter(c => c.current_points > 0);
+  const contestantsWithZeroPoints = leaderboard.filter(c => c.current_points === 0);
 
   if (loading && leaderboard.length === 0) {
     return (
@@ -137,29 +177,15 @@ export default function LeaderboardPage() {
               </h1>
             </div>
             
-            {/* Search and Join Button */}
-            <div className="space-y-3 sm:space-y-0 sm:flex sm:items-center sm:justify-center sm:gap-3">
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Enter your ID (e.g., JohnA1B2)"
-                  value={searchQuery}
-                  onChange={(e) => handleSearch(e.target.value)}
-                  className="w-full px-3 sm:px-4 py-2 sm:py-3 rounded-full border-2 border-gray-300 bg-gray-50 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-golden focus:border-cobalt text-charcoal placeholder-gray-600 shadow-md hover:border-gray-400 transition-colors text-sm sm:text-base"
-                />
-                {searching && (
-                  <div className="absolute right-3 sm:right-4 top-1/2 transform -translate-y-1/2">
-                    <div className="animate-spin rounded-full h-4 sm:h-5 w-4 sm:w-5 border-b-2 border-cobalt"></div>
-                  </div>
-                )}
-              </div>
+            {/* Join Button */}
+            <div className="flex justify-center">
               <a
                 href="https://wa.me/2347076338967?text=%23Challenge"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 sm:px-6 py-2 sm:py-3 bg-gradient-to-r from-cobalt to-cobalt/80 text-white rounded-full font-semibold hover:from-cobalt/90 hover:to-cobalt/70 transition-all duration-300 shadow-lg hover:shadow-xl animate-pulse hover:animate-none text-sm sm:text-base"
+                className="flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-cobalt to-cobalt/80 text-white rounded-full font-semibold hover:from-cobalt/90 hover:to-cobalt/70 transition-all duration-300 shadow-lg hover:shadow-xl animate-pulse hover:animate-none text-base"
               >
-                <svg className="w-4 sm:w-5 h-4 sm:h-5" fill="currentColor" viewBox="0 0 24 24">
+                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                   <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893A11.821 11.821 0 0020.885 3.488"/>
                 </svg>
                 Join The Challenge
@@ -195,32 +221,6 @@ export default function LeaderboardPage() {
           </div>
         </div>
 
-        {/* Your Rank Card (for contestants not in top 100) */}
-        {searchResult && !searchResult.is_in_top_100 && searchResult.neighbors && (
-          <div className="glass-card backdrop-blur-md bg-white/70 border border-white/90 shadow-lg p-4 sm:p-6 mb-6 sm:mb-8">
-            <h2 className="text-lg sm:text-xl font-semibold text-charcoal mb-3 sm:mb-4 text-center">Your Rank</h2>
-            <div className="space-y-2">
-              {searchResult.neighbors.map((neighbor) => (
-                <div
-                  key={neighbor.external_id}
-                  className={`flex items-center justify-between p-2 sm:p-3 glass-card backdrop-blur-md border shadow-sm rounded-lg transition-all ${
-                    neighbor.external_id === searchResult.external_id
-                      ? 'bg-golden/20 border-golden'
-                      : 'bg-white/40 border-white/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3">
-                    <div className="w-6 sm:w-8 h-6 sm:h-8 rounded-full bg-cobalt/10 flex items-center justify-center">
-                      <span className="text-xs sm:text-sm font-medium text-cobalt">#{neighbor.rank}</span>
-                    </div>
-                    <span className="font-medium text-charcoal text-sm sm:text-base truncate">{neighbor.external_id}</span>
-                  </div>
-                  <span className="font-bold text-charcoal text-sm sm:text-base">{neighbor.current_points}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Top-3 Podium */}
         {topThree.length > 0 && (
@@ -250,33 +250,72 @@ export default function LeaderboardPage() {
           </div>
         )}
 
-        {/* Top-100 List */}
-        <div className="glass-card backdrop-blur-md bg-white/70 border border-white/90 shadow-lg">
-          <div className="p-4 sm:p-6">
-            <h2 className="text-lg sm:text-xl font-semibold text-charcoal mb-3 sm:mb-4">Leaderboard</h2>
-            <div className="space-y-1 sm:space-y-2">
-              {top100.map((contestant) => (
-                <div
-                  key={contestant.external_id}
-                  ref={contestant.external_id === highlightedContestant ? highlightedRef : null}
-                  className={`flex items-center justify-between p-2 sm:p-3 glass-card backdrop-blur-md border shadow-sm rounded-lg transition-all ${
-                    contestant.external_id === highlightedContestant
-                      ? 'bg-golden/20 border-golden animate-pulse'
-                      : 'bg-white/40 border-white/60 hover:bg-white/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
-                    <div className="w-6 sm:w-8 h-6 sm:h-8 rounded-full bg-cobalt/10 flex items-center justify-center flex-shrink-0">
-                      <span className="text-xs sm:text-sm font-medium text-cobalt">#{contestant.rank}</span>
+
+            {/* Complete Leaderboard */}
+            <div className="glass-card backdrop-blur-md bg-white/70 border border-white/90 shadow-lg">
+              <div className="p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-semibold text-charcoal mb-3 sm:mb-4">
+                  Complete Leaderboard ({allContestants.length} contestants)
+                </h2>
+                <div className="space-y-1 sm:space-y-2 max-h-[600px] overflow-y-auto">
+                  {allContestants.map((contestant) => (
+                    <div
+                      key={contestant.external_id}
+                      ref={contestant.external_id === highlightedContestant ? highlightedRef : null}
+                      className={`flex items-center justify-between p-2 sm:p-3 glass-card backdrop-blur-md border shadow-sm rounded-lg transition-all ${
+                        contestant.external_id === highlightedContestant
+                          ? 'bg-golden/20 border-golden animate-pulse'
+                          : contestant.current_points === 0
+                          ? 'bg-gray-50/40 border-gray-200/60 hover:bg-gray-100/60'
+                          : 'bg-white/40 border-white/60 hover:bg-white/60'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
+                        <div className={`w-6 sm:w-8 h-6 sm:h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          contestant.current_points === 0 
+                            ? 'bg-gray-200' 
+                            : 'bg-cobalt/10'
+                        }`}>
+                          <span className={`text-xs sm:text-sm font-medium ${
+                            contestant.current_points === 0 
+                              ? 'text-gray-500' 
+                              : 'text-cobalt'
+                          }`}>
+                            #{contestant.rank}
+                          </span>
+                        </div>
+                        <span className={`font-medium text-sm sm:text-base truncate ${
+                          contestant.current_points === 0 
+                            ? 'text-gray-600' 
+                            : 'text-charcoal'
+                        }`}>
+                          {contestant.external_id}
+                        </span>
+                        {contestant.current_points === 0 && (
+                          <span className="text-xs bg-gray-200 text-gray-600 px-2 py-1 rounded-full">
+                            New
+                          </span>
+                        )}
+                      </div>
+                      <span className={`font-bold text-sm sm:text-base flex-shrink-0 ml-2 ${
+                        contestant.current_points === 0 
+                          ? 'text-gray-500' 
+                          : 'text-charcoal'
+                      }`}>
+                        {contestant.current_points}
+                      </span>
                     </div>
-                    <span className="font-medium text-charcoal text-sm sm:text-base truncate">{contestant.external_id}</span>
-                  </div>
-                  <span className="font-bold text-charcoal text-sm sm:text-base flex-shrink-0 ml-2">{contestant.current_points}</span>
+                  ))}
                 </div>
-              ))}
+                {allContestants.length > 10 && (
+                  <div className="mt-4 text-center">
+                    <p className="text-sm text-gray-600">
+                      Scroll to see all contestants
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </div>
 
         {/* Last Updated Indicator */}
         <div className="mt-4 text-center">

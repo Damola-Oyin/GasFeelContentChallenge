@@ -24,15 +24,21 @@ export async function POST(request: NextRequest) {
     const supabase = createClient();
 
     // Get the contest ID first
-    const { data: contestData, error: fetchError } = await supabase
+    const { data: contests, error: fetchError } = await supabase
       .from('contest')
-      .select('id')
-      .single();
+      .select('id');
 
-    if (fetchError || !contestData) {
+    if (fetchError) {
       console.error('Error fetching contest:', fetchError);
+      return NextResponse.json({ error: 'Failed to fetch contest' }, { status: 500 });
+    }
+
+    if (!contests || contests.length === 0) {
+      console.error('No contest found');
       return NextResponse.json({ error: 'Contest not found' }, { status: 404 });
     }
+
+    const contestData = contests[0];
 
     const { error } = await supabase
       .from('contest')

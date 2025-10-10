@@ -22,34 +22,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Contestant ID is required' }, { status: 400 });
     }
 
-    if (!/^GF-[A-Z0-9]{6}$/.test(contestant_id)) {
+    if (contestant_id.length < 5) {
       return NextResponse.json({ error: 'Invalid contestant ID format' }, { status: 400 });
     }
 
     const supabase = createClient();
 
-    // Check contest status and deadline using dynamic timeline (14 days from tomorrow)
-    const { data: contest, error: contestError } = await supabase
+    // Check contest status and dates from database
+    const { data: contests, error: contestError } = await supabase
       .from('contest')
-      .select('status')
-      .single();
+      .select('status, start_at, end_at');
 
     if (contestError) {
       console.error('Error fetching contest:', contestError);
       return NextResponse.json({ error: 'Failed to verify contest status' }, { status: 500 });
     }
 
-    // Calculate dynamic contest end date (same as frontend countdown)
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    
-    const contestEnd = new Date(tomorrow);
-    contestEnd.setDate(tomorrow.getDate() + 14);
-    contestEnd.setHours(23, 59, 59, 999);
+    if (!contests || contests.length === 0) {
+      console.error('No contest found');
+      return NextResponse.json({ error: 'No contest found in database' }, { status: 404 });
+    }
 
-    if (now > contestEnd) {
+    const contest = contests[0];
+
+    const now = new Date();
+    const startAt = contest.start_at ? new Date(contest.start_at as any) : null;
+    const endAt = contest.end_at ? new Date(contest.end_at as any) : null;
+
+    if (startAt && now < startAt) {
+      return NextResponse.json({ error: 'Challenge has not started yet.' }, { status: 400 });
+    }
+
+    if (endAt && now > endAt) {
       return NextResponse.json({ error: 'Challenge deadline has passed. Point additions are disabled.' }, { status: 400 });
     }
 
@@ -57,37 +61,65 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Contest is not in live mode' }, { status: 400 });
     }
 
-    // Get contestant
-    const { data: contestant, error: contestantError } = await supabase
+    // Get contestant (case-insensitive search like validation API)
+    let { data: contestants, error: contestantError } = await supabase
       .from('contestants')
       .select('id, external_id, current_points, first_reached_current_points_at')
-      .eq('external_id', contestant_id)
-      .single();
+      .eq('external_id', contestant_id);
 
-    if (contestantError || !contestant) {
+    // If no exact match, try case-insensitive search
+    if ((!contestants || contestants.length === 0) && !contestantError) {
+      console.log(`No exact match found for ${contestant_id}, trying case-insensitive search`);
+      const result = await supabase
+        .from('contestants')
+        .select('id, external_id, current_points, first_reached_current_points_at')
+        .ilike('external_id', contestant_id);
+      
+      contestants = result.data;
+      contestantError = result.error;
+    }
+
+    if (contestantError) {
+      console.error('Error fetching contestant:', contestantError);
+      return NextResponse.json({ error: 'Failed to fetch contestant' }, { status: 500 });
+    }
+
+    if (!contestants || contestants.length === 0) {
+      console.error('No contestant found with ID:', contestant_id);
       return NextResponse.json({ error: 'Contestant not found' }, { status: 404 });
     }
+
+    console.log(`Found contestant: ${(contestants[0] as any).external_id} with ${(contestants[0] as any).current_points} points`);
+
+    const contestant = contestants[0];
 
     // Use the authenticated user's email
     const appliedByUserId = authResult.user.email;
 
-    const newPoints = (contestant as any).current_points + 10;
+    const newPoints = (contestant as any).current_points + 100;
     const nowTimestamp = now.toISOString();
 
-    // Start a transaction
-    const { error: transactionError } = await supabase.rpc('add_points_transaction', {
-      contestant_id_param: (contestant as any).id,
-      points_delta: 10,
-      source_param: 'csr',
-      applied_by_user_id_param: appliedByUserId,
-      new_points: newPoints,
-      new_timestamp: nowTimestamp
-    });
+    console.log(`CSR API: Updating contestant ${contestant_id} (DB ID: ${(contestant as any).id})`);
+    console.log(`CSR API: Current points: ${(contestant as any).current_points}, New points: ${newPoints}`);
 
-    if (transactionError) {
-      console.error('Transaction error:', transactionError);
+    // Update contestant points directly
+    const { data: updateData, error: updateError } = await supabase
+      .from('contestants')
+      .update({
+        current_points: newPoints,
+        first_reached_current_points_at: nowTimestamp,
+        updated_at: nowTimestamp
+      })
+      .eq('id', (contestant as any).id)
+      .select();
+
+    if (updateError) {
+      console.error('CSR API: Error updating contestant points:', updateError);
       return NextResponse.json({ error: 'Failed to add points' }, { status: 500 });
     }
+
+    console.log('CSR API: Update response:', updateData);
+    console.log(`CSR API: Successfully added 100 points to contestant ${contestant_id}. New total: ${newPoints}`);
 
     return NextResponse.json({
       success: true,

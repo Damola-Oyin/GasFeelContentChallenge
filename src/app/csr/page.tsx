@@ -22,13 +22,20 @@ export default function CSRPage() {
 
   const fetchContestStatus = async () => {
     try {
+      console.log('CSR: Fetching contest status...');
       const response = await fetch('/api/contest/status');
+      console.log('CSR: Contest status response:', response.status, response.statusText);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('CSR: Contest data received:', data);
         setContestStatus(data);
+      } else {
+        const errorData = await response.json();
+        console.error('CSR: Contest status error:', errorData);
       }
     } catch (error) {
-      console.error('Error fetching contest status:', error);
+      console.error('CSR: Error fetching contest status:', error);
     }
   };
 
@@ -81,7 +88,7 @@ export default function CSRPage() {
               Add Points to Contestant
             </h2>
             <p className="text-gray-600 text-sm sm:text-base">
-              Enter a contestant ID to add 10 points. This action cannot be undone.
+              Enter a contestant ID to add 100 points. This action cannot be undone.
             </p>
           </div>
           

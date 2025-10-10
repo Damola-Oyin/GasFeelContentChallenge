@@ -37,7 +37,7 @@ export interface Contestant {
 
 export interface AiSubmission {
   id: string
-  contestant_id: string
+  contestant_ID: string // Actual DB column name (capital letters)
   delta: number
   server_received_at: string
   status: 'pending' | 'approved' | 'rejected' | 'ineligible_late'
@@ -47,15 +47,20 @@ export interface AiSubmission {
   updated_at: string
 }
 
-export interface ScoreChange {
+export interface PointTransaction {
   id: string
   contestant_id: string
-  source: 'csr' | 'ai'
+  source: 'csr' | 'ai_submission_approval' | 'ai_submission_bulk_approval'
   source_ref_id?: string
   delta: number
   created_at: string
   applied_by_user_id: string
+  previous_points: number
+  new_points: number
 }
+
+// Legacy interface for backward compatibility (if needed)
+export interface ScoreChange extends PointTransaction {}
 
 // For leaderboard display
 export interface LeaderboardEntry {

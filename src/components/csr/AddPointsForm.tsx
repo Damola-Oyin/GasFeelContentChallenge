@@ -48,7 +48,9 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
       setValidating(true);
       setError(null);
       
-      const response = await fetch(`/api/contestants/validate?id=${encodeURIComponent(id)}`);
+      // Convert to uppercase for database query (database stores IDs in uppercase)
+      const upperCaseId = id.toUpperCase();
+      const response = await fetch(`/api/contestants/validate?id=${encodeURIComponent(upperCaseId)}`);
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -81,6 +83,12 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
       // Get auth token from localStorage
       const token = localStorage.getItem('auth_token');
       
+      if (!token) {
+        throw new Error('Authentication token not found. Please login again.');
+      }
+
+      console.log('CSR AddPoints: Submitting for contestant:', contestantId.trim().toUpperCase());
+      
       const response = await fetch('/api/csr/add-points', {
         method: 'POST',
         headers: {
@@ -88,17 +96,22 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          contestant_id: contestantId.trim(),
+          contestant_id: contestantId.trim().toUpperCase(), // Convert to uppercase for database consistency
         }),
       });
 
+      console.log('CSR AddPoints: Response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
+        console.error('CSR AddPoints: Error response:', errorData);
         throw new Error(errorData.error || 'Failed to add points');
       }
 
       const result = await response.json();
-      setSuccess(`10 points added to ${contestantId} successfully!`);
+      console.log('CSR AddPoints: Success result:', result);
+      
+      setSuccess(`100 points added to ${contestantId.trim()} successfully!`);
       setContestantId('');
       setContestant(null);
       setShowConfirmDialog(false);
@@ -109,7 +122,9 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
       // Clear success message after 5 seconds
       setTimeout(() => setSuccess(null), 5000);
     } catch (err) {
+      console.error('CSR AddPoints: Error caught:', err);
       setError(err instanceof Error ? err.message : 'Failed to add points');
+      setShowConfirmDialog(false); // Close dialog even on error
     } finally {
       setLoading(false);
     }
@@ -123,7 +138,7 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
     setShowConfirmDialog(false);
   };
 
-  const nextPoints = contestant ? contestant.current_points + 10 : 0;
+  const nextPoints = contestant ? contestant.current_points + 100 : 0;
 
   return (
     <div className="space-y-6">
@@ -161,7 +176,7 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
             id="contestant-id"
             type="text"
             value={contestantId}
-            onChange={(e) => setContestantId(e.target.value.toUpperCase())}
+            onChange={(e) => setContestantId(e.target.value)}
             placeholder="Enter ID (e.g., JohnA1B2)"
             disabled={!isContestActive}
             className="w-full px-4 py-3 rounded-lg border border-white/80 bg-white/60 backdrop-blur-md focus:outline-none focus:ring-2 focus:ring-golden focus:border-transparent text-charcoal placeholder-gray-500 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -183,7 +198,7 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
       <div className="glass-card backdrop-blur-md bg-white/40 border border-white/60 shadow-sm p-4">
         <div className="text-center">
           <span className="text-charcoal font-medium">Add </span>
-          <span className="text-xl font-bold text-cobalt">10 points</span>
+          <span className="text-xl font-bold text-cobalt">100 points</span>
           <span className="text-charcoal font-medium"> (fixed amount)</span>
         </div>
       </div>
@@ -240,7 +255,7 @@ export default function AddPointsForm({ contestStatus, onSuccess }: AddPointsFor
               </div>
               <h3 className="text-xl font-semibold text-charcoal mb-2">Confirm Action</h3>
               <p className="text-gray-600 mb-6">
-                Are you sure you want to add 10 points to <strong>{contestantId}</strong>?
+                Are you sure you want to add 100 points to <strong>{contestantId.trim()}</strong>?
                 <br />
                 <span className="text-tangerine font-medium">This action cannot be undone.</span>
               </p>

@@ -58,7 +58,7 @@ export default function CSRTestPage() {
               Add Points to Contestant
             </h2>
             <p className="text-gray-600">
-              Enter a contestant ID to add 10 points. This action cannot be undone.
+              Enter a contestant ID to add 100 points. This action cannot be undone.
             </p>
           </div>
           

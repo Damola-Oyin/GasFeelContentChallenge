@@ -6,7 +6,7 @@ interface Contest {
   id: string;
   name: string;
   status: 'live' | 'verification' | 'final';
-  freeze_public_display: boolean;
+    freeze_public_display: boolean;
   end_at: string;
 }
 
@@ -22,31 +22,51 @@ export default function AdminControls({ contest, onUpdate }: AdminControlsProps)
   const [countdown, setCountdown] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
   const [isPastDeadline, setIsPastDeadline] = useState(false);
 
-  // Calculate countdown - same logic as homepage (14 days from tomorrow)
+  // Calculate countdown from contest data
   useEffect(() => {
     const calculateCountdown = () => {
       const now = new Date();
-      const tomorrow = new Date(now);
-      tomorrow.setDate(now.getDate() + 1);
-      tomorrow.setHours(0, 0, 0, 0);
+      const contestEnd = contest?.end_at ? new Date(contest.end_at) : null;
       
-      const contestEnd = new Date(tomorrow);
-      contestEnd.setDate(tomorrow.getDate() + 14);
-      contestEnd.setHours(23, 59, 59, 999);
-      
-      const timeDiff = contestEnd.getTime() - now.getTime();
-      
-      if (timeDiff > 0) {
-        const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-        const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+      if (contestEnd) {
+        const timeDiff = contestEnd.getTime() - now.getTime();
         
-        setCountdown({ days, hours, minutes, seconds });
-        setIsPastDeadline(false);
+        if (timeDiff > 0) {
+          const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+          
+          setCountdown({ days, hours, minutes, seconds });
+          setIsPastDeadline(false);
+        } else {
+          setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+          setIsPastDeadline(true);
+        }
       } else {
-        setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
-        setIsPastDeadline(true);
+        // Fallback to hardcoded dates if no contest data
+        const tomorrow = new Date(now);
+        tomorrow.setDate(now.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+        
+        const contestEnd = new Date(tomorrow);
+        contestEnd.setDate(tomorrow.getDate() + 14);
+        contestEnd.setHours(23, 59, 59, 999);
+        
+        const timeDiff = contestEnd.getTime() - now.getTime();
+        
+        if (timeDiff > 0) {
+          const days = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((timeDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeDiff % (1000 * 60)) / 1000);
+          
+          setCountdown({ days, hours, minutes, seconds });
+          setIsPastDeadline(false);
+        } else {
+          setCountdown({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+          setIsPastDeadline(true);
+        }
       }
     };
 
@@ -56,7 +76,7 @@ export default function AdminControls({ contest, onUpdate }: AdminControlsProps)
     const interval = setInterval(calculateCountdown, 1000);
     
     return () => clearInterval(interval);
-  }, []);
+  }, [contest?.end_at]); // Re-run when contest end date changes
 
   const handleFreezeToggle = async () => {
     if (!contest) return;
@@ -75,16 +95,16 @@ export default function AdminControls({ contest, onUpdate }: AdminControlsProps)
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          freeze: !contest.freeze_public_display
-        })
+            body: JSON.stringify({
+              freeze: !contest.freeze_public_display
+            })
       });
       
       if (!response.ok) {
         throw new Error('Failed to update freeze status');
       }
       
-      setSuccess(`Leaderboard display ${!contest.freeze_public_display ? 'frozen' : 'unfrozen'}`);
+          setSuccess(`Leaderboard display ${!contest.freeze_public_display ? 'frozen' : 'unfrozen'}`);
       onUpdate();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to update freeze status');

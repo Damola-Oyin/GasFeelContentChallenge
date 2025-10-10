@@ -7,34 +7,36 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const supabase = createClient();
-    const { data: contest, error } = await supabase
+    
+    // Try to get contest data, but handle the case where no rows exist
+    const { data: contests, error } = await supabase
       .from('contest')
-      .select('id, name, status, freeze_public_display, rules_url')
-      .single();
+      .select('id, name, status, start_at, end_at, freeze_public_display, last_published_at');
 
     if (error) {
       console.error('Error fetching contest:', error);
-      return NextResponse.json({ error: 'Failed to fetch contest status' }, { status: 500 });
+      return NextResponse.json({ error: `Failed to fetch contest status: ${error.message}` }, { status: 500 });
     }
 
-    // Calculate dynamic contest dates (14 days from tomorrow)
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(now.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    
-    const contestEnd = new Date(tomorrow);
-    contestEnd.setDate(tomorrow.getDate() + 14);
-    contestEnd.setHours(23, 59, 59, 999);
+    // Check if we got any results
+    if (!contests || contests.length === 0) {
+      console.error('No contest found in database');
+      return NextResponse.json({ error: 'No contest found in database. Please check your Supabase setup.' }, { status: 404 });
+    }
 
-    // Add dynamic dates to contest object
-    const contestWithDynamicDates = {
+    // Use the first contest (there should only be one)
+    const contest = contests[0];
+    
+    const nowIso = new Date().toISOString();
+    
+    const responseBody = {
       ...contest,
-      start_at: tomorrow.toISOString(),
-      end_at: contestEnd.toISOString(),
+      now: nowIso,
+      has_passed_deadline: contest.end_at ? new Date(nowIso) > new Date(contest.end_at) : false,
     };
 
-    return NextResponse.json(contestWithDynamicDates);
+    console.log('Contest API returning:', responseBody);
+    return NextResponse.json(responseBody);
   } catch (error) {
     console.error('Unexpected error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
